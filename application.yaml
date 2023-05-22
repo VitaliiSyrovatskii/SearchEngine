@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    username: root
+    password: testtest
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+indexing-settings:
+  sites:
+    - url: http://www.playback.ru
+      name: playback.ru
+    - url: https://dimonvideo.ru
+      name: dimonvideo.ru
+    - url: http://www.playback.ru/product/1122829.html
+      name: проверка
+  userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.102 Safari/537.36 OPR/90.0.4480.54
+  referrer: http://www.google.com
