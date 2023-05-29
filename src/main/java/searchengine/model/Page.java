@@ -22,7 +22,7 @@ public class Page {
     @JoinColumn(name = "site_id", nullable = false)
     private SiteTable site;
 
-    @Column(name = "path", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "path", columnDefinition = "TEXT NOT NULL, KEY (path(50))")
     private String path;
 
     @Column(name = "code", nullable = false, columnDefinition = "INT")

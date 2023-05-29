@@ -2,10 +2,7 @@ package searchengine.controllers;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import searchengine.dto.indexing.IndexingOk;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.dto.search.SearchError;
@@ -43,33 +40,40 @@ public class ApiController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<IndexingResponse> startIndexing(){
+    public ResponseEntity<IndexingResponse> startIndexing() {
         IndexingResponse response = indexingService.startIndexing();
-        if (response instanceof IndexingOk) return ResponseEntity.ok(response);
-        else return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        if (response instanceof IndexingOk) {
+            return ResponseEntity.ok(response);
+        } else {
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
     }
 
     @GetMapping("/stopIndexing")
-    public ResponseEntity<IndexingResponse> stopIndexing(){
+    public ResponseEntity<IndexingResponse> stopIndexing() {
         IndexingResponse response = indexingService.stopIndexing();
-        if (response instanceof IndexingOk) return ResponseEntity.ok(response);
-        else return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        if (response instanceof IndexingOk) {
+            return ResponseEntity.ok(response);
+        } else {
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
     }
 
-    @RequestMapping(value = "/indexPage", method = RequestMethod.POST)
-    public ResponseEntity<IndexingResponse> indexPage(String url){
+    @PostMapping("/indexPage")
+    public ResponseEntity<IndexingResponse> indexPage(String url) {
         IndexingResponse response = indexingSinglePageService.indexPage(url);
         if (response instanceof IndexingOk) return ResponseEntity.ok(response);
         else return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<SearchResponse> search(String query, String site, int offset, int limit){
+    public ResponseEntity<SearchResponse> search(String query, String site, int offset, int limit) {
         SearchResponse response = searchService.search(query, site, offset, limit);
-        if (response instanceof SearchOk) return ResponseEntity.ok(response);
-        else {
+        if (response instanceof SearchOk) {
+            return ResponseEntity.ok(response);
+        } else {
             SearchError searchError = (SearchError) response;
-            if (searchError.getError().equals("Ошибка сервера")){
+            if (searchError.getError().equals("Ошибка сервера")) {
                 return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
             } else {
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

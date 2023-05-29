@@ -10,7 +10,7 @@ import searchengine.dto.search.SearchError;
 import searchengine.dto.search.SearchOk;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.search.SearchedPage;
-import searchengine.model.SiteRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.model.SiteTable;
 
 import java.io.IOException;
@@ -69,27 +69,7 @@ public class SearchServiceImpl implements SearchService {
         for (SearchedPage searchedPage : tempData) {
             searchedPage.setRelevance(searchedPage.getRelevance() / maxAbsRel);
         }
-        tempData.sort(new Comparator<SearchedPage>() {
-            @Override
-            public int compare(SearchedPage o1, SearchedPage o2) {
-                return -Float.compare(o1.getRelevance(), o2.getRelevance());
-            }
-        });
-        ArrayList<SearchedPage> data = new ArrayList<>();
-        SearchOk searchOk = new SearchOk();
-        searchOk.setCount(tempData.size());
-        if (offset >= tempData.size()) {
-            searchOk.setData(data);
-            return searchOk;
-        }
-        if (offset + limit > tempData.size()) limit = tempData.size() - offset;
-        for (int i = 0; i < tempData.size(); i++) {
-            if (i >= offset && i < offset + limit) {
-                data.add(tempData.get(i));
-            }
-        }
-        searchOk.setData(data);
-        return searchOk;
+        return prepareResponse(tempData, offset, limit);
     }
 
     private List<SearchedPage> searchOnSite(String query, SiteTable site) {
@@ -100,7 +80,9 @@ public class SearchServiceImpl implements SearchService {
             e.printStackTrace();
             return null;
         }
-        if (queryLemmas.isEmpty()) return new ArrayList<>();
+        if (queryLemmas.isEmpty()) {
+            return new ArrayList<>();
+        }
         StringBuilder selectLemma = new StringBuilder();
         for (String lemma : queryLemmas.keySet()) {
             selectLemma.append((selectLemma.isEmpty() ? "" : " OR ") + "lemma='" + lemma + "'");
@@ -128,21 +110,13 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private void setTitleAndSnippet(SearchedPage searchedPage, Set<String> lemmas, String content) {
-        ArrayList<String> sortLemmas = new ArrayList<>(lemmas);
+        ArrayList<String> queryLemmas = new ArrayList<>(lemmas);
         Document doc = Jsoup.parse(content);
         searchedPage.setTitle(doc.title());
         String text = doc.body().text();
         HashSet<Integer> indexes = new HashSet<>();
-        for (String lemma : sortLemmas) {
-            String regexLemma = "[^а-яА-Я]?" + lemma.substring(0, lemma.length() - 1) + "[а-я]*[^а-яА-Я]?";
-            Pattern pattern = Pattern.compile(regexLemma);
-            Matcher matcher = pattern.matcher(text.toLowerCase(Locale.ROOT));
-            while (matcher.find()) {
-                if (matcher.start() == 0) indexes.add(matcher.start());
-                else indexes.add(matcher.start() + 1);
-                if (matcher.end() == text.length()) indexes.add(matcher.end());
-                else indexes.add(matcher.end() - 1);
-            }
+        for (String lemma : queryLemmas) {
+            findIndexesLemmasInText(lemma, text, indexes);
         }
         ArrayList<Integer> countInsert = new ArrayList<>();
         for (int i = 0; i < text.length() - 300; i++) {
@@ -164,23 +138,75 @@ public class SearchServiceImpl implements SearchService {
         }
         String snippet = text.substring(indexMaxCount, indexMaxCount + 300);
         ArrayList<String> replace = new ArrayList<>();
-        for (String lemma : sortLemmas) {
-            String regexLemma = "[^а-яА-Я]?" + lemma.substring(0, lemma.length() - 1) + "[а-я]*[^а-яА-Я]?";
-            Pattern pattern = Pattern.compile(regexLemma);
-            Matcher matcher = pattern.matcher(snippet.toLowerCase(Locale.ROOT));
-            while (matcher.find()) {
-                int start;
-                if (matcher.start() == 0) start = matcher.start();
-                else start = matcher.start() + 1;
-                int finish;
-                if (matcher.end() == snippet.length()) finish = matcher.end();
-                else finish = matcher.end() - 1;
-                replace.add(snippet.substring(start, finish));
-            }
+        for (String lemma : queryLemmas) {
+            findReplacedWordInSnippet(lemma, snippet, replace);
         }
         for (String word : replace) {
             snippet = snippet.replaceAll(word, "<b>" + word + "</b>");
         }
         searchedPage.setSnippet(snippet);
+    }
+
+    private void findIndexesLemmasInText(String lemma, String text, HashSet<Integer> indexes){
+        String regexLemma = "[^а-яА-Я]?" + lemma.substring(0, lemma.length() - 1) + "[а-я]*[^а-яА-Я]?";
+        Pattern pattern = Pattern.compile(regexLemma);
+        Matcher matcher = pattern.matcher(text.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            if (matcher.start() == 0) {
+                indexes.add(matcher.start());
+            } else {
+                indexes.add(matcher.start() + 1);
+            }
+            if (matcher.end() == text.length()) {
+                indexes.add(matcher.end());
+            } else {
+                indexes.add(matcher.end() - 1);
+            }
+        }
+    }
+
+    private void findReplacedWordInSnippet(String lemma, String snippet, ArrayList<String> replace){
+        String regexLemma = "[^а-яА-Я]?" + lemma.substring(0, lemma.length() - 1) + "[а-я]*[^а-яА-Я]?";
+        Pattern pattern = Pattern.compile(regexLemma);
+        Matcher matcher = pattern.matcher(snippet.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            int start;
+            if (matcher.start() == 0) {
+                start = matcher.start();
+            } else {
+                start = matcher.start() + 1;
+            }
+            int finish;
+            if (matcher.end() == snippet.length()) {
+                finish = matcher.end();
+            } else {
+                finish = matcher.end() - 1;
+            }
+            replace.add(snippet.substring(start, finish));
+        }
+    }
+
+    private SearchResponse prepareResponse(ArrayList<SearchedPage> tempData, int offset, int limit){
+        tempData.sort(new Comparator<SearchedPage>() {
+            @Override
+            public int compare(SearchedPage o1, SearchedPage o2) {
+                return -Float.compare(o1.getRelevance(), o2.getRelevance());
+            }
+        });
+        ArrayList<SearchedPage> data = new ArrayList<>();
+        SearchOk searchOk = new SearchOk();
+        searchOk.setCount(tempData.size());
+        if (offset >= tempData.size()) {
+            searchOk.setData(data);
+            return searchOk;
+        }
+        if (offset + limit > tempData.size()) limit = tempData.size() - offset;
+        for (int i = 0; i < tempData.size(); i++) {
+            if (i >= offset && i < offset + limit) {
+                data.add(tempData.get(i));
+            }
+        }
+        searchOk.setData(data);
+        return searchOk;
     }
 }

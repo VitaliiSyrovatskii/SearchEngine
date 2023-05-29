@@ -9,6 +9,8 @@ import org.jsoup.select.Elements;
 import searchengine.config.Referrer;
 import searchengine.config.UserAgent;
 import searchengine.model.*;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,34 +58,34 @@ final class Parsing extends RecursiveAction {
             newPage.setCode(response.statusCode());
             String path = url.equals(site.getUrl()) ?
                     "/" : url.replaceFirst(site.getUrl(), "");
-            if (path.matches("/[/\\\\]+.*")) return;
+            if (path.matches("/[/\\\\]+.*")) {
+                return;
+            }
             newPage.setPath(path);
             newPage.setContent(doc.html().replaceAll("'", ""));
             Elements elements = doc.select("a");
             for (String element : elements.eachAttr("abs:href")) {
                 listUrl.add(element);
             }
-            try {
-                SEMAPHORE.acquire();
-                synchronized (pageRepository) {
-                    if (pageRepository.findByPathAndSite(path, site).isPresent()) {
-                        SEMAPHORE.release();
-                        return;
-                    }
-                    pageRepository.save(newPage);
+            SEMAPHORE.acquire();
+            synchronized (pageRepository) {
+                if (pageRepository.findByPathAndSite(path, site).isPresent()) {
+                    SEMAPHORE.release();
+                    return;
                 }
-                SiteTable siteTable = siteRepository.findById(site.getId()).get();
-                siteTable.setStatusTime(new Date());
-                siteRepository.save(siteTable);
-                AddLemmaAndIndex.addInTables(site, newPage);
-                SEMAPHORE.release();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                pageRepository.save(newPage);
             }
-        } catch (IOException e) {
+            SiteTable siteTable = siteRepository.findById(site.getId()).get();
+            siteTable.setStatusTime(new Date());
+            siteRepository.save(siteTable);
+            AddLemmaAndIndex.addInTables(site, newPage);
+            SEMAPHORE.release();
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        if (isStop) return;
+        if (isStop) {
+            return;
+        }
         ArrayList<Parsing> taskList = new ArrayList<>();
         for (String newUrl : listUrl) {
             if (newUrl.indexOf(site.getUrl()) != 0) continue;

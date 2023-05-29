@@ -12,6 +12,10 @@ import searchengine.config.UserAgent;
 import searchengine.dto.indexing.IndexingError;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 
 import java.io.IOException;
 import java.util.*;
@@ -87,7 +91,9 @@ public class IndexingSinglePageServiceImpl implements IndexingSinglePageService 
                     .followRedirects(false)
                     .ignoreContentType(true)
                     .execute();
-            if (!response.contentType().contains("text/html")) return null;
+            if (!response.contentType().contains("text/html")) {
+                return null;
+            }
             Document doc = response.parse();
             page.setSite(site);
             String path = url.equals(site.getUrl()) ?

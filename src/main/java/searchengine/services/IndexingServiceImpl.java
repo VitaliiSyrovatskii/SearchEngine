@@ -12,6 +12,8 @@ import searchengine.dto.indexing.IndexingError;
 import searchengine.dto.indexing.IndexingOk;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
@@ -60,30 +62,33 @@ public class IndexingServiceImpl implements IndexingService {
             siteTable.setStatus(StatusType.INDEXING);
             siteTable.setStatusTime(new Date());
             siteRepository.save(siteTable);
-            Parsing parsing = new Parsing();
-            parsing.setSite(siteTable);
-            parsing.setUrl(siteTable.getUrl());
-            ForkJoinPool forkJoinPool = new ForkJoinPool();
-            siteInIndexing.add(siteTable);
-            new Thread(() -> {
-                try {
-                    forkJoinPool.invoke(parsing);
-                } catch (Exception e) {
-                    if (siteTable.getStatus().equals(StatusType.INDEXING)) {
-                        siteTable.setLastError(e.getMessage());
-                        siteTable.setStatus(StatusType.FAILED);
-                    }
-                } finally {
-                    siteTable.setStatusTime(new Date());
-                    if (siteTable.getStatus().equals(StatusType.INDEXING)) {
-                        siteTable.setStatus(StatusType.INDEXED);
-                    }
-                    siteRepository.save(siteTable);
-                }
-            }).start();
+            startParsing(siteTable);
         }
-        IndexingOk indexingOk = new IndexingOk();
-        return indexingOk;
+        return new IndexingOk();
+    }
+
+    private void startParsing(SiteTable siteTable){
+        Parsing parsing = new Parsing();
+        parsing.setSite(siteTable);
+        parsing.setUrl(siteTable.getUrl());
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        siteInIndexing.add(siteTable);
+        new Thread(() -> {
+            try {
+                forkJoinPool.invoke(parsing);
+            } catch (Exception e) {
+                if (siteTable.getStatus().equals(StatusType.INDEXING)) {
+                    siteTable.setLastError(e.getMessage());
+                    siteTable.setStatus(StatusType.FAILED);
+                }
+            } finally {
+                siteTable.setStatusTime(new Date());
+                if (siteTable.getStatus().equals(StatusType.INDEXING)) {
+                    siteTable.setStatus(StatusType.INDEXED);
+                }
+                siteRepository.save(siteTable);
+            }
+        }).start();
     }
 
     @Override
@@ -103,7 +108,6 @@ public class IndexingServiceImpl implements IndexingService {
         }
         Parsing.isStop = true;
         siteInIndexing.clear();
-        IndexingOk indexingOk = new IndexingOk();
-        return indexingOk;
+        return new IndexingOk();
     }
 }

@@ -15,8 +15,7 @@ final class AddLemmaAndIndex {
 
     static synchronized IndexingResponse addInTables(SiteTable site, Page page) {
         if (page.getCode() >= 400){
-            IndexingOk indexingOk = new IndexingOk();
-            return indexingOk;
+            return new IndexingOk();
         }
         Map<String, Integer> lemmas;
         try {
@@ -28,8 +27,7 @@ final class AddLemmaAndIndex {
             return indexingError;
         }
         if (lemmas.isEmpty()) {
-            IndexingOk indexingOk = new IndexingOk();
-            return indexingOk;
+            return new IndexingOk();
         }
         StringBuilder insertLemma = new StringBuilder();
         StringBuilder selectLemma = new StringBuilder();
@@ -55,8 +53,7 @@ final class AddLemmaAndIndex {
         String sqlInsertForIndex = "INSERT INTO `index` (page_id, lemma_id, `rank`) " +
                 "VALUES " + insertIndex;
         jdbcTemplate.execute(sqlInsertForIndex);
-        IndexingOk indexingOk = new IndexingOk();
-        return indexingOk;
+        return new IndexingOk();
     }
 
 }
